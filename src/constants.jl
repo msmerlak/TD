@@ -1,0 +1,3 @@
+REWARD = 5
+PUNISHMENT = - 5
+
