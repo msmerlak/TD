@@ -28,7 +28,7 @@ function create_model(
     properties = deepcopy(p)
 
     properties[:LOD] = LOD
-    properties[:selection] = a -> mean(a.scores)
+    properties[:selection] = a -> exp(model.σ * mean(a.scores))
 
     model = AgentBasedModel(Mem1Player, space, properties = properties, rng = rng, scheduler = Schedulers.by_id)
     model.n = Int(model.n)
@@ -91,7 +91,7 @@ function mutate!(player, model)
     if rand(model.rng) < model.μ
         player.strategy += rand(model.rng, DiscreteUniform(-model.δ, model.δ))
     end
-    player.strategy = max(min(player.strategy, 100), 1)
+    player.strategy = max(min(player.strategy, 100), REWARD)
 end
 
 # function window!(x)
