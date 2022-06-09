@@ -107,7 +107,7 @@ function WF_sampling!(model)
     mean_payoff = mean([mean(a.scores) for a in allagents(model)])
     # compute fitness and reset scores etc
     for a in allagents(model)
-        a.fitness = 1/(1 + exp(-model.σ * (mean(a.scores) - mean_payoff)))#model.selection(a)
+        a.fitness = 1/(1 + exp(-model.β * (mean(a.scores) - mean_payoff)))#model.selection(a)
         a.scores = Int64[]
         sizehint!(a.scores, model.n^2)
     end
