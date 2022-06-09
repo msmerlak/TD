@@ -3,6 +3,11 @@ using Distributed
 PROCESSES = Sys.CPU_THREADS - 1
 addprocs(PROCESSES)
 
+@everywhere begin
+    import Pkg
+    Pkg.activate(".") 
+end
+
 @everywhere using DrWatson
 @everywhere @quickactivate "TD"
 
@@ -19,15 +24,18 @@ using Plots
 end
 
 
-@everywhere function initialize(; n, μ, δ, init_strategy = 50, σ = 1.)
-    return create_model(Dict{Symbol, Any}(:n => n, :μ => μ, :δ => δ, :init_strategy => init_strategy, :σ => σ))
+@everywhere function initialize(; n = 100, μ = .1, δ = 5, init_strategy = 50, σ = 1.,  reward = 2, punishment = 2)
+    return create_model(Dict{Symbol, Any}(:n => n, :μ => μ, :δ => δ, :init_strategy => init_strategy, :σ => σ, :reward => reward, :punishment => punishment))
 end
 
 ### time series
 
 params = Dict(  :n => 100, 
-                :μ => collect(1e-2:2e-2:1e-1), 
-                :δ => 10
+                :μ => collect(1e-2:2e-1:1), 
+                :reward => 2,
+                :punishment => 2,
+                :δ => 50,
+                :σ => 10.
             )
 
 adata, _ = paramscan(params, initialize; 
@@ -56,10 +64,11 @@ savefig(current(), plotsdir("vary_mu.png"))
 
 params = Dict(  :n => 100, 
                 :μ => collect(1e-2:5e-3:4e-1), 
-                :δ => collect(1:20)
+                :δ => collect(1:20),
+                :σ => 1.
             )
 
-adata, _ = paramscan(params, initialize; 
+@time adata, _ = paramscan(params, initialize; 
     agent_step! = player_step!, 
     model_step! = WF_sampling!, 
     n = 1_000, 
@@ -103,7 +112,9 @@ savefig(plotsdir("phase-diagram"))
 params = Dict(  :n => 100, 
                 :μ => 1e-1, 
                 :δ => 10,
-                :σ => collect(.01:.05:.4)
+                :σ => collect(.01:.01:2),
+                :reward => 2,
+                :punishment => 2
             )
 
 adata, _ = paramscan(params, initialize; 
@@ -125,5 +136,68 @@ end
 
 Arrow.write(datadir(string(today()), "vary_sigma.arrow"), adata)
 
-savefig(current(), plotsdir("vary_mu.png"))
+savefig(current(), plotsdir("vary_sigma.png"))
 
+
+
+last = @subset adata (:step .== 1000)
+@df last plot(:σ, :mean_strategy, legend = :bottomright, xlabel = "σ", ylabel = "mean claim", dpi = 300)
+
+
+
+
+
+
+
+
+
+## vary μ
+
+
+### time series
+
+params = Dict(  :n => 120, 
+                :μ => collect(1e-2:1e-2:1.), 
+                :δ => 5,
+                :σ => 1,
+                :reward => 2
+            )
+
+adata, _ = paramscan(params, initialize; 
+    agent_step! = player_step!, 
+    model_step! = WF_sampling!, 
+    n = 1_000, 
+    adata = [(:strategy, mean), (:strategy, std)], 
+    parallel = true
+    )
+
+
+last = @subset adata (:step .== 1000)
+
+
+
+@df last plot(:μ, :mean_strategy, legend = :bottomright, xlabel = "μ", ylabel = "mean claim", dpi = 300)
+
+
+@df last plot(:μ, :std_strategy, legend = :bottomright, xlabel = "μ", ylabel = "mean claim", dpi = 300)
+
+
+
+
+params = Dict(  :n => 120, 
+                :μ => collect(1e-2:1e-2:1.), 
+                :δ => 5,
+                :σ => .5,
+                :reward => 2
+            )
+adata, _ = paramscan(params, initialize; 
+    agent_step! = player_step!, 
+    model_step! = WF_sampling!, 
+    n = 1_000, 
+    adata = [:strategy], 
+    parallel = true
+    )
+
+
+last = @subset adata (:step .== 1000) (:μ .== .2)
+histogram(last[:, :strategy])

@@ -28,7 +28,6 @@ function create_model(
     properties = deepcopy(p)
 
     properties[:LOD] = LOD
-    properties[:selection] = a -> exp(model.σ * mean(a.scores))
 
     model = AgentBasedModel(Mem1Player, space, properties = properties, rng = rng, scheduler = Schedulers.by_id)
     model.n = Int(model.n)
@@ -64,8 +63,8 @@ end
 function match!((X, Y)::Tuple{Mem1Player,Mem1Player}, model)
 
     if X.id != Y.id
-        push!(X.scores, π(X.strategy, Y.strategy))
-        push!(Y.scores, π(Y.strategy, X.strategy))
+        push!(X.scores, π(X.strategy, Y.strategy, model))
+        push!(Y.scores, π(Y.strategy, X.strategy, model))
     end
 end
 
@@ -99,15 +98,16 @@ end
 # end
 
 function player_step!(player, model)
-    mutate!(player, model)
     play_matches!(player, model)
+    mutate!(player, model)
 end
 
 function WF_sampling!(model)
 
+    mean_payoff = mean([mean(a.scores) for a in allagents(model)])
     # compute fitness and reset scores etc
     for a in allagents(model)
-        a.fitness = model.selection(a)
+        a.fitness = 1/(1 + exp(-model.σ * (mean(a.scores) - mean_payoff)))#model.selection(a)
         a.scores = Int64[]
         sizehint!(a.scores, model.n^2)
     end
